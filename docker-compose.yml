@@ -1,0 +1,56 @@
+version: "3.8"
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: Bookingsqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      SA_PASSWORD: "SaherPass.123"
+      ACCEPT_EULA: "Y"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - app-networks
+    healthcheck:
+      test: ["CMD-SHELL", "sqlcmd -U sa -P $$SA_PASSWORD -Q 'SELECT 1'"]
+      interval: 10s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    hostname: "rmq"
+    ports:
+      - "7070:15672"
+      - "5672:5672"  # AMQP port
+    environment:
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "securepassword"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-networks
+
+  bookingserviceapi:
+    build:
+      context: .
+      dockerfile: BookingService.API/Dockerfile
+    container_name: bookingserviceapi
+    ports:
+      - "8080:8080"
+    depends_on:
+      - sqlserver
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=BookingDataBase;User Id=sa;Password=SaherPass.123;TrustServerCertificate=True;"
+    networks:
+      - app-networks
+
+volumes:
+  sqlserver_data:
+
+networks:
+  app-networks:
